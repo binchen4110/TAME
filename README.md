@@ -21,7 +21,7 @@ pip install -r requirement.txt
 For all the datasets, the following command can be used to get the history of their entities and relations.
 ```
 cd src
-python get_history.py --dataset ICEWS14
+python get_history.py --dataset ICEWS14s
 ```
 
 
