@@ -18,24 +18,26 @@ pip install -r requirement.txt
 
 #### Process data
 
-For all the datasets, the following command can be used to get the history of their entities and relations.
+The following command can be used to get the history and natural division of the queries.
 ```
 cd src
-python get_history.py --dataset ICEWS14s
+python get_history.py --dataset GDELT
 ```
 
 
 #### Train model
 
 ```
-python ../src/main.py -d ICEWS14s --train-use-ratio 1 --history-rate 0.3 --identity-len 10000 --train-history-len 1 --test-history-len 1 --dilate-len 1 --lr 0.001 --n-layers 2 --evaluate-every 1 --n-hidden 200 --self-loop --decoder timeconvtranse --encoder convgcn --layer-norm --weight 0.5  --entity-prediction  --add-static-graph --angle 14 --discount 1 --task-weight 1 --gpu 0 --save checkpoint
+python ../src/main.py -d GDELT --train-use-ratio 1 --history-rate 0.3 --identity-len 10000 --train-history-len 7 --test-history-len 7 --dilate-len 1 --lr 0.001 --n-layers 2 --evaluate-every 1 --n-hidden 200 --self-loop --decoder timeconvtranse --encoder convgcn --layer-norm --weight 0.5  --entity-prediction --angle 10 --discount 1 --task-weight 1 --gpu 0 --save checkpoint 
+
 
 ```
 
 #### Test models
 
 ```
-python ../src/main.py -d ICEWS14s --train-use-ratio 1 --history-rate 0.3 --identity-len 10000 --train-history-len 1 --test-history-len 1 --dilate-len 1 --lr 0.001 --n-layers 2 --evaluate-every 1 --n-hidden 200 --self-loop --decoder timeconvtranse --encoder convgcn --layer-norm --weight 0.5  --entity-prediction  --add-static-graph --angle 14 --discount 1 --task-weight 1 --gpu 0 --save checkpoint --test 
+python ../src/main.py -d GDELT --train-use-ratio 1 --history-rate 0.3 --identity-len 10000 --train-history-len 7 --test-history-len 7 --dilate-len 1 --lr 0.001 --n-layers 2 --evaluate-every 1 --n-hidden 200 --self-loop --decoder timeconvtranse --encoder convgcn --layer-norm --weight 0.5  --entity-prediction --angle 10 --discount 1 --task-weight 1 --gpu 0 --save checkpoint 
+
 ```
 
 
