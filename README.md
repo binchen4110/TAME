@@ -21,7 +21,7 @@ pip install -r requirement.txt
 The following command can be used to get the history and natural division of the queries.
 ```
 cd src
-python get_history.py --dataset GDELT
+python get_division_history.py --dataset GDELT
 ```
 
 
