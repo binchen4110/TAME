@@ -503,11 +503,11 @@ if __name__ == '__main__':
                         help="feat dropout for decoder")
 
     # configuration for sequences stat
-    parser.add_argument("--identity-len", type=int, default=9,
+    parser.add_argument("--identity-len", type=int, default=10000,
                         help="repeat length for test")
-    parser.add_argument("--train-history-len", type=int, default=9,
+    parser.add_argument("--train-history-len", type=int, default=7,
                         help="history length")
-    parser.add_argument("--test-history-len", type=int, default=9,
+    parser.add_argument("--test-history-len", type=int, default=7,
                         help="history length for test")
     parser.add_argument("--dilate-len", type=int, default=1,
                         help="dilate history graph")
