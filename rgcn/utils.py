@@ -8,12 +8,6 @@ from collections import defaultdict
 import os
 
 
-#######################################################################
-#
-# Utility function for building training and testing graphs
-#
-#######################################################################
-
 
 
 
@@ -93,17 +87,13 @@ def r2e(triplets, num_rels):
         idx += len(r_to_e[r])
     return uniq_r, r_len, e_idx
 
-# 使用当前要预测的s掩码全局adj, 目的：相当于Attention, 指的是在学习过程中着重强调当前要预测的s
+
 def mask_by_s(triplets, num_enity):
-    # important!!!
-    # 得到mask tensor, 后面掩码全局adj使用
-    # 创建一个形状为 (n, 1) 的全零Tensor，n为节点数量
+
     mask_tensor = torch.zeros((num_enity, 1), dtype=torch.float32)
     src = triplets[:, 0].reshape(-1)
     src = torch.unique(src)
 
-    # 将有边连接的节点在Tensor中对应的位置设置为1
-    # 注意：这里使用了torch.unique来确保节点不会因为多条边而被重复设置
     mask_tensor[src.long(), 0] = 1
     
     return mask_tensor
@@ -111,34 +101,27 @@ def mask_by_s(triplets, num_enity):
 
 def neighbors_2_hop_retrieve(g):
     node_neighbors_dict = {}
-    # 先获取所有节点1跳邻居
+    
     for node in g.nodes():
-        # 获得从node出发的所有边的终点
         neighbors_1_hop = g.successors(node).tolist()
-        # 获得所有到达node的边的起点
+       
         neighbors_1_hop.extend(g.predecessors(node).tolist())
         neighbors_1_hop = list(set(neighbors_1_hop))
         node_neighbors_dict[node.item()] = {"1_hop": neighbors_1_hop}
 
-    # 构建2跳图
     g_2 = dgl.khop_graph(g, k=2)
 
-    # 再获取所有节点2跳邻居
     for node in g_2.nodes():
-        # 获得从node出发的所有边的终点
         neighbors_2_hop = g_2.successors(node).tolist()
-        # 获得所有到达node的边的起点
         neighbors_2_hop.extend(g_2.predecessors(node).tolist())
         neighbors_2_hop = list(set(neighbors_2_hop))
 
         node_neighbors_dict[node.item()].update({"2_hop": neighbors_2_hop})
-    
-    # 去重，防止又是1hop又是2hop的情况
+
     
     return node_neighbors_dict
 
 
-# 构建dense graph, 实现2-hop邻居检索
 def build_dense_graph(num_nodes, num_rels, input_list, curr_t, use_cuda, gpu):
     def comp_deg_norm(g):
         in_deg = g.in_degrees(range(g.number_of_nodes())).float()
@@ -146,13 +129,13 @@ def build_dense_graph(num_nodes, num_rels, input_list, curr_t, use_cuda, gpu):
         norm  = 1.0 / in_deg
         return norm
     
-    triples = np.concatenate(input_list, axis=0) # 把各个时间戳的事件拼接起来
+    triples = np.concatenate(input_list, axis=0) 
     # triples = triples[:, :3] # [s, r, o]
     triples = triples[:, :] # [s, r, o, t]
     src, rel, dst, t = triples.transpose()
     src, dst = np.concatenate((src, dst)), np.concatenate((dst, src))
     rel = np.concatenate((rel, rel + num_rels))
-    t = np.abs(curr_t - t) #取时间间隔
+    t = np.abs(curr_t - t) 
     t = np.concatenate((t, t))
 
     g = dgl.DGLGraph()
@@ -197,16 +180,6 @@ def build_sub_graph(num_nodes, num_rels, triples, use_cuda, gpu):
     g.apply_edges(lambda edges: {'norm': edges.dst['norm'] * edges.src['norm']})
     g.edata['type'] = torch.LongTensor(rel)
 
-    
-    # # important!!!
-    # # 得到mask tensor, 后面掩码全局adj使用
-    # # 创建一个形状为 (n, 1) 的全零Tensor，n为节点数量
-    # mask_tensor = torch.zeros((num_nodes, 1), dtype=torch.float32)
-    # # 将有边连接的节点在Tensor中对应的位置设置为1
-    # # 注意：这里使用了torch.unique来确保节点不会因为多条边而被重复设置
-    # mask_tensor[torch.unique(torch.from_numpy(src)).long(), 0] = 1
-    # g.mask = mask_tensor
-
 
     uniq_r, r_len, r_to_e = r2e(triples, num_rels)
     g.uniq_r = uniq_r
@@ -217,20 +190,18 @@ def build_sub_graph(num_nodes, num_rels, triples, use_cuda, gpu):
         g.r_to_e = torch.from_numpy(np.array(r_to_e)).long()
     return g
 
-# 获取头部entity列表
 def get_head_entity_list(my_data, head_ratio):
-    sorted_indices = np.argsort(my_data[:,-1])[::-1] # 按频率实现降序排列
+    sorted_indices = np.argsort(my_data[:,-1])[::-1] 
     sorted_data = my_data[sorted_indices]
     head_num = int(len(sorted_data)*head_ratio)
     head_data = sorted_data[:head_num,:]
     head_entity = head_data[:,0].reshape(-1)
 
     return list(head_entity)
-
-# 取出不在head_list中的index
+    
 def split_array(base_array, refer_list):
     # base_array = base_array
-    column_index = 2 # 要预测的o
+    column_index = 2 
     # mask = np.isin(base_array[:, column_index], refer_list)
 
     # head_index = np.where(mask)
@@ -246,9 +217,8 @@ def split_array(base_array, refer_list):
 
     return head_index, tail_index
 
-# 根据某列的值把list分成两部分, 并返回相应bool标志
 def split_array_for_ids(base_array, refer_list):
-    column_index = 2 # 要预测的o
+    column_index = 2 
     mask = torch.isin(base_array[:, column_index], refer_list)
 
     # array_in_list = base_array[mask]
@@ -256,47 +226,41 @@ def split_array_for_ids(base_array, refer_list):
 
     return np.array(mask), np.array(~mask)
 
-# 从neighbors_dict中取出2-hop以内邻居
 def get_neighbors(s_entity, neighbors_dict):
 
     neighbors_all = []
     s = s_entity.cpu().item()
     if s in neighbors_dict.keys():
-        # 取出 1-hop, 2-hop邻居检索
+       
         neighbors_1_hop = neighbors_dict[s]["1_hop"]
         neighbors_2_hop = neighbors_dict[s]["2_hop"]
-        # 合并这两跳邻居（即，去重）
+        
         neighbors_all = list(set(neighbors_1_hop + neighbors_2_hop))
     return neighbors_all
 
-# 取1-hop邻居
 def get_neighbors_1_hop(s_entity, neighbors_dict):
 
     neighbors_all = []
     s = s_entity.cpu().item()
     if s in neighbors_dict.keys():
-        # 取出 1-hop邻居检索
         neighbors_1_hop = neighbors_dict[s]["1_hop"]
         # neighbors_2_hop = neighbors_dict[s]["2_hop"]
-        # 合并这两跳邻居（即，去重）
         neighbors_all = list(set(neighbors_1_hop))
     return neighbors_all
 
-# 取2-hop邻居    
+   
 def get_neighbors_2_hop(s_entity, neighbors_dict):
 
     neighbors_all = []
     s = s_entity.cpu().item()
     if s in neighbors_dict.keys():
-        # 取2-hop邻居检索
+        
         # neighbors_1_hop = neighbors_dict[s]["1_hop"]
         neighbors_2_hop = neighbors_dict[s]["2_hop"]
-        # 合并这两跳邻居（即，去重）
         neighbors_all = list(set(neighbors_2_hop))
     return neighbors_all
     
 
-# 针对每个snapshot，得到其s的邻居矩阵
 def get_neighbors_matrix(triplets, neighbors, num_entity):
     s_entities = list(triplets[:, 0].reshape(-1))
     l = torch.stack(s_entities)
@@ -310,12 +274,12 @@ def get_neighbors_matrix(triplets, neighbors, num_entity):
     for i in range(len(s_entities)):
         s_entity = s_entities[i]
         # s = s_entity.cpu().item()
-        # s_neighhbors_list = get_neighbors(s_entity, neighbors) # 2-hop以内
-        s_neighhbors_list = get_neighbors_1_hop(s_entity, neighbors) # 1-hop以内
+        # s_neighhbors_list = get_neighbors(s_entity, neighbors) 
+        s_neighhbors_list = get_neighbors_1_hop(s_entity, neighbors) 
         neighbors_matrix[i, s_neighhbors_list] = 1
     
     return torch.Tensor(neighbors_matrix)
-# 针对每个snapshot，得到其s的邻居矩阵
+
 def get_neighbors_matrix_full(triplets, neighbors, num_entity):
     s_entities = list(triplets[:, 0].reshape(-1))
     l = torch.stack(s_entities)
@@ -331,71 +295,51 @@ def get_neighbors_matrix_full(triplets, neighbors, num_entity):
         if tmp==1:
             s_entity = i
         # s = s_entity.cpu().item()
-        # s_neighhbors_list = get_neighbors(s_entity, neighbors) # 2-hop以内
-            s_neighhbors_list = get_neighbors_1_hop(s_entity, neighbors) # 1-hop以内
+        # s_neighhbors_list = get_neighbors(s_entity, neighbors) 
+            s_neighhbors_list = get_neighbors_1_hop(s_entity, neighbors) 
             neighbors_matrix[i, s_neighhbors_list] = 1
     
     return torch.Tensor(neighbors_matrix)
-# 针对每个snapshot，得到其s的非邻居矩阵（即，有邻居点标记为0）
+    
+
 def get_neighbors_matrix_tranverse(triplets, neighbors, num_entity):
     s_entities = list(triplets[:, 0].reshape(-1))
     neighbors_matrix = np.ones((len(s_entities), num_entity))
     for i in range(len(s_entities)):
         s_entity = s_entities[i]
         # s = s_entity.cpu().item()
-        # s_neighhbors_list = get_neighbors(s_entity, neighbors) # 2-hop以内
-        s_neighhbors_list = get_neighbors_1_hop(s_entity, neighbors) # 1-hop以内
+        # s_neighhbors_list = get_neighbors(s_entity, neighbors) 
+        s_neighhbors_list = get_neighbors_1_hop(s_entity, neighbors) 
         neighbors_matrix[i, s_neighhbors_list] = 0
     
     return torch.Tensor(neighbors_matrix)
 
 
-# 增加预测中tail实体的分数
+
 def add_tail_score(triplets, scores, neighbors, head_entity_list):
     s_entity = list(triplets[:, 0].reshape(-1))
-    # 1，2跳邻居score分别增大的倍数
-    # 因为model.predict()得出的分数（取了log）是负数, 所以这里是除以
 
     multiple_factor = 1
     # multiple_factor_1_hop = 20
     # multiple_factor_2_hop = 5
     node_ids = list(range(scores.shape[1]))
-    # 取tail实体
+
     tail_entity_list = [item for item in node_ids if item not in head_entity_list]
     tail_entity_set = set(tail_entity_list)
     for i in range(len(s_entity)):
         s = s_entity[i].cpu().item()
         if s in neighbors.keys():
-            # 取出 1-hop, 2-hop邻居检索
             neighbors_1_hop = neighbors[s]["1_hop"]
             neighbors_2_hop = neighbors[s]["2_hop"]
-            # 合并这两跳邻居（即，去重）
             neighbors_all = set(neighbors_1_hop + neighbors_2_hop)
             selected_o = neighbors_all & tail_entity_set
             selected_o_list = list(selected_o)
             scores[i, selected_o_list] /= multiple_factor
-
-
-            # # 1-hop 
-            # neighbors_1_hop = neighbors[s]["1_hop"]
-            # # 又是尾实体又是1-hop邻居
-            # selected_o_1_hop = set(neighbors_1_hop) & tail_entity_set
-            # selected_o_1_hop_list = list(selected_o_1_hop)
-            # scores[i, selected_o_1_hop_list] /=multiple_factor_1_hop
-
-            # # 2-hop 
-            # neighbors_2_hop = neighbors[s]["2_hop"]
-            # # 又是尾实体又是2-hop邻居
-            # selected_o_2_hop = set(neighbors_2_hop) & tail_entity_set
-            # selected_o_2_hop_list = list(selected_o_2_hop)
-            # scores[i, selected_o_2_hop_list] /=multiple_factor_2_hop
     
     return scores
 
 
 
-# 1. 统计所有query中答案在其2-hop邻居内的比例；
-# 2. 所有query,其2-hop邻居内head的占比；head query， tail query同理
 def get_neighbor_and_head_ratio(test_triples, neighbors_dict, head_entity_list):
 
     no_neighbors_count = 0
@@ -409,14 +353,13 @@ def get_neighbor_and_head_ratio(test_triples, neighbors_dict, head_entity_list):
     has_neighbors_id = []
 
     for i in range(len(test_triples)):
-        # 统计所有query中答案在其2-hop邻居内的比例；
         s = test_triples[i, 0]
         o = test_triples[i, 2].cpu().item()
         neighbors_s = get_neighbors(s, neighbors_dict)
         neighbors_s_1_hop = get_neighbors_1_hop(s, neighbors_dict)
         neighbors_s_2_hop = get_neighbors_2_hop(s, neighbors_dict)
 
-        if len(neighbors_s_1_hop) != 0: # s有1-hop邻居
+        if len(neighbors_s_1_hop) != 0: 
             if o in neighbors_s_1_hop:
                 is_anwser_in_neighbors_1_hop.append(1)
                 has_answer_in_neighbors_1_hop_id.append(i)
@@ -424,24 +367,20 @@ def get_neighbor_and_head_ratio(test_triples, neighbors_dict, head_entity_list):
                 is_anwser_in_neighbors_1_hop.append(0)
 
         
-        if len(neighbors_s_2_hop) != 0: # s有2-hop邻居
+        if len(neighbors_s_2_hop) != 0: 
             if o in neighbors_s_2_hop:
                 is_anwser_in_neighbors_2_hop.append(1)
             else:
                 is_anwser_in_neighbors_2_hop.append(0)
 
 
-        # if o in neighbors_s:
-        #     is_anwser_in_neighbors.append(1)
-        # else:
-        #     is_anwser_in_neighbors.append(0)
-        if len(neighbors_s) != 0: # s有邻居
+
+        if len(neighbors_s) != 0: 
             if o in neighbors_s:
                 is_anwser_in_neighbors.append(1)
                 has_answer_in_neighbors_id.append(i)
             else:
                 is_anwser_in_neighbors.append(0)
-            # 所有query,其2-hop邻居内head的占比
             head_entity_set = set(head_entity_list)
             is_neighbors_in_head = [(i in head_entity_set) for i in neighbors_s]
             neighbors_in_head_count = sum(is_neighbors_in_head)
@@ -449,7 +388,7 @@ def get_neighbor_and_head_ratio(test_triples, neighbors_dict, head_entity_list):
             head_in_neighbors_ratio_list.append(head_in_neighbors_ratio)
             has_neighbors_count +=1
             has_neighbors_id.append(i)
-        else: # s无邻居
+        else: 
             head_in_neighbors_ratio_list.append(0)
             no_neighbors_count +=1
 
@@ -475,7 +414,6 @@ def get_total_rank_with_tail(test_triples, score, all_ans, neighbors_dict, head_
         triples_batch = test_triples[batch_start:batch_end, :]
         score_batch = score[batch_start:batch_end, :]
         if is_en:
-            # 修改score_batch
             # triples_batch_np = triples_batch.cpu().nump()
             head_entity_list_ts = torch.tensor(head_entity_list).cuda()
             head_index, tail_index = split_array(triples_batch, head_entity_list_ts)
