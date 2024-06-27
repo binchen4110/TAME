@@ -168,12 +168,10 @@ class RecurrentRGCN(nn.Module):
         degree_list = []
 
         his_g = his_dense_graph
-        # # 获取无向的邻接矩阵
-        # his_g = dgl.to_bidirected(his_dense_graph)
 
         if self.use_static:
             static_graph = static_graph.to(self.gpu)
-            static_graph.ndata['h'] = torch.cat((self.dynamic_emb, self.words_emb), dim=0)  # 演化得到的表示，和wordemb满足静态图约束
+            static_graph.ndata['h'] = torch.cat((self.dynamic_emb, self.words_emb), dim=0) 
             self.statci_rgcn_layer(static_graph, [])
             static_emb = static_graph.ndata.pop('h')[:self.num_ents, :]
             static_emb = F.normalize(static_emb) if self.layer_norm else static_emb
@@ -184,9 +182,8 @@ class RecurrentRGCN(nn.Module):
 
         history_embs = []
 
-        # 计算dense_graph的邻接矩阵
         adj = his_g.adjacency_matrix().to_dense()
-        adj = adj.transpose(0, 1).clamp(max=1) # 得到入度邻居，并去掉重复邻居
+        adj = adj.transpose(0, 1).clamp(max=1) 
         adj = mask * adj
         mean = F.normalize(adj, p=1, dim=1).cuda()
         
@@ -213,11 +210,10 @@ class RecurrentRGCN(nn.Module):
                 self.h_0 = F.normalize(self.h_0) if self.layer_norm else self.h_0
 
 
-            # 这里计算算context_info的时候，采用的是变化的节点表示 (可选，也可以选择固定的节点表示，初始的)
             neighbor = torch.mm(mean, self.h)
             context_info = self.r_tail(self.h, neighbor)  
             
-            current_h = self.rgcn.forward(g, self.h, [self.h_0, self.h_0]) # 也可以选择在每层图学习中注入context信息
+            current_h = self.rgcn.forward(g, self.h, [self.h_0, self.h_0]) 
             # current_h = current_h + context_info # h + m
             current_h = self.W1(current_h) + self.W2(context_info) # W1*h + W2*m
             current_h = F.relu(current_h)
@@ -238,7 +234,6 @@ class RecurrentRGCN(nn.Module):
             inverse_test_triplets[:, 1] = inverse_test_triplets[:, 1] + num_rels
             all_triples = torch.cat((test_triplets, inverse_test_triplets))
 
-            # 根据当前要预测的s，生成mask向量
             mask = utils.mask_by_s(all_triples, num_entity)
     
             
